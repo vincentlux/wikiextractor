@@ -671,11 +671,20 @@ class Extractor(object):
         # look for matching <nowiki>...</nowiki>
         res = ''
         cur = 0
+        nowiki_chunks = {}
+        nowiki_id = 0
         for m in nowiki.finditer(wikitext, cur):
-            res += self.transform1(wikitext[cur:m.start()]) + wikitext[m.start():m.end()]
+            nowiki_key = "<NOWIKICHUNKNUMBER{}>".format(nowiki_id)
+            res += wikitext[cur:m.start()] + nowiki_key
+            nowiki_chunks[nowiki_key] = wikitext[m.start()+len("<nowiki>"):m.end()-len("</nowiki>")]
+            nowiki_id += 1
             cur = m.end()
         # leftover
-        res += self.transform1(wikitext[cur:])
+        res += wikitext[cur:]
+        res = self.transform1(res)
+        for key in nowiki_chunks:
+            res = res.replace(key, nowiki_chunks[key])
+        
         return res
 
 
@@ -1021,6 +1030,15 @@ class Extractor(object):
             funct = title[:colon]
             parts[0] = title[colon + 1:].strip()  # side-effect (parts[0] not used later)
             # arguments after first are not evaluated
+            if subst and self.frame.depth > 0 and funct == '#invoke' and len(parts) <= 2:
+                self.frame.pop()
+                for k in self.frame.args:
+                    if re.match(r'^\d+$', k):
+                        parts += [self.frame.args[k]]
+                    else:
+                        parts += ["{}={}".format(k, self.frame.args[k])]
+                        
+                
             ret = callParserFunction(funct, parts, self)
             logging.debug('%*s<EXPAND %s %s', self.frame.depth, '', funct, ret)
             return ret
@@ -1266,7 +1284,7 @@ def findMatchingBraces(text, ldelim=0):
                     break
                 elif len(stack) == 1 and 0 < stack[0] < ldelim:
                     # ambiguous {{{{{ }}} }}
-                    #yield m1.start() + stack[0], end
+                    yield m1.start() + stack[0], end
                     cur = end
                     break
             elif brac == '[':  # [[
@@ -1512,7 +1530,8 @@ def roman_main(args):
 
 modules = {
     'convert': {
-        'convert': lambda x, u, *rest: x + ' ' + u,  # no conversion
+        # no conversion
+        'convert': lambda params: params['1'] + ' ' + params['2'],
     },
 
     'If empty': {
