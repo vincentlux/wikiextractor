@@ -1928,6 +1928,10 @@ parserFunctions = {
 
     'int': lambda extr, string, *rest: text_type(int(string)),
 
+    # 'bd': lambda extr, string, *rest: re.sub(r'\|', ' ', string),
+    
+    # 'lang': lambda extr, string, *rest: re.sub(r'\|', ' ', string),
+
 }
 
 
